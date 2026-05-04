@@ -1,0 +1,35 @@
+import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+
+export const spellsTable = sqliteTable(
+  "spells",
+  {
+    id: text("id").primaryKey(),
+    name: text("name").notNull(),
+    description: text("description").notNull(),
+    atHigherLevel: text("at_higher_level"),
+    page: text("page"),
+    range: text("range").notNull(),
+    componentVerbal: integer("component_verbal", { mode: "boolean" }).notNull(),
+    componentSomatic: integer("component_somatic", { mode: "boolean" }).notNull(),
+    componentMaterial: integer("component_material", { mode: "boolean" }).notNull(),
+    materialDescription: text("material_description"),
+    ritual: integer("ritual", { mode: "boolean" }).notNull(),
+    duration: text("duration").notNull(),
+    concentration: integer("concentration", { mode: "boolean" }).notNull(),
+    castingTime: text("casting_time").notNull(),
+    level: integer("level").notNull(),
+    school: text("school").notNull(),
+    classes: text("classes").notNull(),
+    source: text("source").notNull(),
+    slug: text("slug").notNull(),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => ({
+    nameIdx: index("spells_name_idx").on(table.name),
+    slugIdx: index("spells_slug_idx").on(table.slug),
+    sourceIdx: index("spells_source_idx").on(table.source),
+    levelIdx: index("spells_level_idx").on(table.level),
+    schoolIdx: index("spells_school_idx").on(table.school),
+  }),
+);

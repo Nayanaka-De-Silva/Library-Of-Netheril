@@ -1,0 +1,41 @@
+{
+  "name": "library-of-netheril",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "postinstall": "npm rebuild better-sqlite3",
+    "dev": "concurrently -k -n server,client \"bun run dev:server\" \"bun run dev:client\"",
+    "dev:server": "bun run src/server/index.ts",
+    "dev:client": "vite",
+    "build": "vite build && tsc -p tsconfig.server.json",
+    "start": "bun dist/server/src/server/index.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.server.json --noEmit",
+    "db:migrate": "bun run src/server/scripts/migrate.ts",
+    "seed:canonicalize": "bun run scripts/normalize-spells.ts",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.13.8",
+    "@hono/zod-validator": "^0.4.1",
+    "@solidjs/router": "^0.14.10",
+    "better-sqlite3": "^11.7.0",
+    "dotenv": "^16.4.7",
+    "drizzle-orm": "^0.36.4",
+    "hono": "^4.6.13",
+    "solid-js": "^1.9.3",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.12",
+    "@types/node": "^22.10.2",
+    "concurrently": "^9.1.0",
+    "drizzle-kit": "^0.29.1",
+    "jsdom": "^25.0.1",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.3",
+    "vite-plugin-solid": "^2.11.0",
+    "vitest": "^2.1.8"
+  }
+}

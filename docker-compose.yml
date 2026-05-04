@@ -1,0 +1,14 @@
+services:
+  library-of-netheril:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      PORT: 3000
+      DATABASE_URL: /app/persist/library-of-netheril.sqlite
+      CORS_ORIGIN: "*"
+    volumes:
+      - library_of_netheril_data:/app/persist
+
+volumes:
+  library_of_netheril_data:
