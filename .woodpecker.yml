@@ -6,6 +6,7 @@ steps:
       - apt-get install -y --no-install-recommends python3 make g++
       - rm -rf /var/lib/apt/lists/*
       - npm ci
+      - npm install --include=optional
       - npm run typecheck
       - npm run build
       - npm test
