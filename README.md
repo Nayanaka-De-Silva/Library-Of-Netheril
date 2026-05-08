@@ -107,6 +107,34 @@ docker compose up --build
 
 The container exposes one HTTP port on `3000` and stores SQLite data in a persistent Docker volume mounted at `/app/persist`.
 
+### Production compose
+
+For a production host that should only run the latest prebuilt image, use `docker-compose.prod.yml`.
+
+It expects the application image to already exist on the host and defaults to `library-of-netheril:latest`. The named Docker volume keeps the SQLite database mounted at `/app/persist`, so `docker compose up --force-recreate` replaces the container without wiping live data.
+
+```bash
+docker compose -f docker-compose.prod.yml up -d --force-recreate --remove-orphans
+```
+
+Optional `.env` values for the production compose:
+
+- `APP_IMAGE` - image tag to deploy, default `library-of-netheril:latest`
+- `APP_PORT` - host port to publish, default `3000`
+- `PORT` - container HTTP port, default `3000`
+- `DATABASE_URL` - SQLite file path inside the container, default `/app/persist/library-of-netheril.sqlite`
+- `CORS_ORIGIN` - `*` or a comma-separated allowlist
+
+### CI/CD
+
+This repo now includes a Woodpecker pipeline in `.woodpecker.yml`:
+
+- `verify` runs `npm ci`, `npm run typecheck`, `npm run build`, and `npm test` for pushes and pull requests
+- `build-image` rebuilds `library-of-netheril:latest` on pushes to `main`
+- `deploy` copies `docker-compose.prod.yml` into `/home/krystler/container/library-of-netheril` and recreates the production service without removing the persistent volume
+
+The production host should keep a `/home/krystler/container/library-of-netheril/.env` file with the desired production values before the deploy step runs.
+
 ## Validation commands
 
 ```bash

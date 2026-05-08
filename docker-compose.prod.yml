@@ -1,0 +1,29 @@
+name: library-of-netheril
+
+services:
+  library-of-netheril:
+    image: ${APP_IMAGE:-library-of-netheril:latest}
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-3000}:${PORT:-3000}"
+    environment:
+      PORT: ${PORT:-3000}
+      DATABASE_URL: ${DATABASE_URL:-/app/persist/library-of-netheril.sqlite}
+      CORS_ORIGIN: ${CORS_ORIGIN:-*}
+    volumes:
+      - library_of_netheril_data:/app/persist
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "bun",
+          "-e",
+          "const port = process.env.PORT ?? '3000'; const response = await fetch('http://127.0.0.1:' + port + '/api/v1/health'); if (!response.ok) process.exit(1);",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
+volumes:
+  library_of_netheril_data:

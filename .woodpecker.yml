@@ -1,0 +1,61 @@
+steps:
+  - name: verify
+    image: node:22-bookworm-slim
+    commands:
+      - apt-get update
+      - apt-get install -y --no-install-recommends python3 make g++
+      - rm -rf /var/lib/apt/lists/*
+      - npm ci
+      - |-
+        ROLLUP_VERSION=$(node -p "require('./node_modules/rollup/package.json').version")
+        case "$(uname -m)" in
+          aarch64|arm64)
+            npm install --no-save "@rollup/rollup-linux-arm64-gnu@${ROLLUP_VERSION}"
+            ;;
+          x86_64|amd64)
+            npm install --no-save "@rollup/rollup-linux-x64-gnu@${ROLLUP_VERSION}"
+            ;;
+        esac
+      - npm run typecheck
+      - npm run build
+      - npm test
+    when:
+      - event: [push, pull_request]
+
+  - name: build-image
+    image: docker:27
+    privileged: true
+    depends_on:
+      - verify
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    commands:
+      - docker build --pull -t library-of-netheril:latest .
+    when:
+      - event: push
+        branch: main
+
+  - name: deploy
+    image: docker:27
+    privileged: true
+    depends_on:
+      - build-image
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /home/krystler/container/library-of-netheril:/deploy
+    commands:
+      - mkdir -p /deploy
+      - cp docker-compose.prod.yml /deploy/docker-compose.prod.yml
+      - cp .env.example /deploy/.env.example
+      - |-
+        test -f /deploy/.env || {
+          echo "Missing /deploy/.env. Copy /deploy/.env.example to /deploy/.env and set production values before deploying." >&2
+          exit 1
+        }
+      - cd /deploy
+      - docker compose -p library-of-netheril -f ./docker-compose.prod.yml config >/dev/null
+      - APP_IMAGE=library-of-netheril:latest docker compose -p library-of-netheril -f ./docker-compose.prod.yml up --force-recreate -d --remove-orphans --wait --wait-timeout 120
+      - docker image prune -f
+    when:
+      - event: push
+        branch: main
