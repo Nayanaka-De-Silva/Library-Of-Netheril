@@ -6,16 +6,7 @@ steps:
       - apt-get install -y --no-install-recommends python3 make g++
       - rm -rf /var/lib/apt/lists/*
       - npm ci
-      - |-
-        ROLLUP_VERSION=$(node -p "require('./node_modules/rollup/package.json').version")
-        case "$(uname -m)" in
-          aarch64|arm64)
-            npm install --no-save "@rollup/rollup-linux-arm64-gnu@${ROLLUP_VERSION}"
-            ;;
-          x86_64|amd64)
-            npm install --no-save "@rollup/rollup-linux-x64-gnu@${ROLLUP_VERSION}"
-            ;;
-        esac
+      - sh ./scripts/install-rollup-native.sh
       - npm run typecheck
       - npm run build
       - npm test
