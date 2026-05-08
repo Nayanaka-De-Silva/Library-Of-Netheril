@@ -124,7 +124,7 @@ export function SpellListPage() {
           <For each={spells()?.data}>
             {(spell) => (
               <A href={`/spells/${spell.id}`} class="card spell-list-item">
-                <div>
+                <div class="spell-list-copy">
                   <h2>{spell.name}</h2>
                   <p class="muted">{spell.id}</p>
                 </div>
