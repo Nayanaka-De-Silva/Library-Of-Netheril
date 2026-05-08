@@ -43,6 +43,8 @@ export const spellSchema = z.object({
 export const spellSummarySchema = spellSchema.pick({
   id: true,
   name: true,
+  level: true,
+  school: true,
 });
 
 export const spellListQuerySchema = z.object({

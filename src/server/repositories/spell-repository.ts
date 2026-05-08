@@ -132,6 +132,8 @@ export class SpellRepository {
       .select({
         id: spellsTable.id,
         name: spellsTable.name,
+        level: spellsTable.level,
+        school: spellsTable.school,
       })
       .from(spellsTable)
       .where(whereClause)
