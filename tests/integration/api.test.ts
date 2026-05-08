@@ -29,7 +29,7 @@ describe("REST API", () => {
       pageSize: 5,
     });
     expect(listPayload.data.length).toBeGreaterThan(0);
-    expect(Object.keys(listPayload.data[0]).sort()).toEqual(["id", "name"]);
+    expect(Object.keys(listPayload.data[0]).sort()).toEqual(["id", "level", "name", "school"]);
   });
 
   it("supports stable lookup, filtering, and validation error shape", async () => {

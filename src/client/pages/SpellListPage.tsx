@@ -1,8 +1,26 @@
 import { A, useSearchParams } from "@solidjs/router";
 import { For, Show, createMemo, createResource } from "solid-js";
 import { Layout } from "../components/Layout";
-import { SpellBadge } from "../components/SpellBadge";
 import { api, ApiClientError } from "../lib/api";
+
+const formatSpellLevelAndSchool = (level: number, school: string) => {
+  const normalizedSchool = school.toLowerCase();
+
+  if (level === 0) {
+    return `${normalizedSchool} cantrip`;
+  }
+
+  const suffix =
+    level % 10 === 1 && level % 100 !== 11
+      ? "st"
+      : level % 10 === 2 && level % 100 !== 12
+        ? "nd"
+        : level % 10 === 3 && level % 100 !== 13
+          ? "rd"
+          : "th";
+
+  return `${level}${suffix}-level ${normalizedSchool}`;
+};
 
 export function SpellListPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -126,9 +144,8 @@ export function SpellListPage() {
               <A href={`/spells/${spell.id}`} class="card spell-list-item">
                 <div class="spell-list-copy">
                   <h2>{spell.name}</h2>
-                  <p class="muted">{spell.id}</p>
+                  <p class="muted">{formatSpellLevelAndSchool(spell.level, spell.school)}</p>
                 </div>
-                <SpellBadge source={spell.id.startsWith("custom-") ? "custom" : "official"} />
               </A>
             )}
           </For>
