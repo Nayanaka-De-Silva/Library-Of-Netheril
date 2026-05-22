@@ -36,7 +36,7 @@ steps:
       - /home/krystler/containers/library-of-netheril:/deploy
     commands:
       - mkdir -p /deploy
-      - cp docker-compose.prod.yml /deploy/docker-compose.prod.yml
+      - cp docker-compose.prod.yml /deploy/docker-compose.yml
       - cp .env.example /deploy/.env.example
       - |-
         test -f /deploy/.env || {
@@ -44,8 +44,8 @@ steps:
           exit 1
         }
       - cd /deploy
-      - docker compose -p library-of-netheril -f ./docker-compose.prod.yml config >/dev/null
-      - APP_IMAGE=library-of-netheril:latest docker compose -p library-of-netheril -f ./docker-compose.prod.yml up --force-recreate -d --remove-orphans --wait --wait-timeout 120
+      - docker compose -p library-of-netheril config >/dev/null
+      - APP_IMAGE=library-of-netheril:latest docker compose -p library-of-netheril up -d --force-recreate --no-build --remove-orphans --wait --wait-timeout 120
       - docker image prune -f
     when:
       - event: push

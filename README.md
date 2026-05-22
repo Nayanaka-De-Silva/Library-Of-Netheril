@@ -109,12 +109,14 @@ The container exposes one HTTP port on `3000` and stores SQLite data in a persis
 
 ### Production compose
 
-For a production host that should only run the latest prebuilt image, use `docker-compose.prod.yml`.
+For a production host that should only run the latest prebuilt image, use `docker-compose.prod.yml` as the source template and place it on the host as `docker-compose.yml`.
 
 It expects the application image to already exist on the host and defaults to `library-of-netheril:latest`. The named Docker volume keeps the SQLite database mounted at `/app/persist`, so `docker compose up --force-recreate` replaces the container without wiping live data.
 
 ```bash
-docker compose -f docker-compose.prod.yml up -d --force-recreate --remove-orphans
+cp docker-compose.prod.yml /home/krystler/containers/library-of-netheril/docker-compose.yml
+cd /home/krystler/containers/library-of-netheril
+APP_IMAGE=library-of-netheril:latest docker compose up -d --force-recreate --no-build --remove-orphans --wait --wait-timeout 120
 ```
 
 Optional `.env` values for the production compose:
@@ -131,9 +133,9 @@ This repo now includes a Woodpecker pipeline in `.woodpecker.yml`:
 
 - `verify` runs `npm ci`, `npm run typecheck`, `npm run build`, and `npm test` for pushes and pull requests
 - `build-image` rebuilds `library-of-netheril:latest` on pushes to `main`
-- `deploy` copies `docker-compose.prod.yml` into `/home/krystler/container/library-of-netheril` and recreates the production service without removing the persistent volume
+- `deploy` copies `docker-compose.prod.yml` into `/home/krystler/containers/library-of-netheril/docker-compose.yml` and recreates the production service from the previously built image without removing the persistent volume
 
-The production host should keep a `/home/krystler/container/library-of-netheril/.env` file with the desired production values before the deploy step runs.
+The production host should keep a `/home/krystler/containers/library-of-netheril/.env` file with the desired production values before the deploy step runs.
 
 ## Validation commands
 
