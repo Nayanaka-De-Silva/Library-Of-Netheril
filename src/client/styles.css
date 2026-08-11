@@ -228,13 +228,31 @@ textarea {
 
 .detail-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 1rem;
+  /* min() keeps tiles from overflowing on very narrow viewports */
+  grid-template-columns: repeat(auto-fit, minmax(min(11rem, 100%), 1fr));
+  gap: 0.75rem;
+  margin: 1.5rem 0;
+}
+
+.detail-grid > div {
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  padding: 0.75rem;
+  min-width: 0;
 }
 
 .detail-grid dt {
   color: var(--muted);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
   margin-bottom: 0.25rem;
+}
+
+.detail-grid dd {
+  margin: 0; /* clear the UA default 40px indent that broke label/value alignment */
+  overflow-wrap: anywhere; /* keep long material descriptions inside the tile */
 }
 
 .checkbox-grid,

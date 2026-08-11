@@ -2,6 +2,7 @@ import { A, useNavigate, useParams } from "@solidjs/router";
 import { Show, createResource } from "solid-js";
 import { Layout } from "../components/Layout";
 import { SpellBadge } from "../components/SpellBadge";
+import { SpellStatGrid } from "../components/SpellStatGrid";
 import { api, ApiClientError } from "../lib/api";
 
 export function SpellDetailPage() {
@@ -27,6 +28,8 @@ export function SpellDetailPage() {
               </div>
               <SpellBadge source={record().source} />
             </div>
+            <SpellStatGrid spell={record()} />
+
             <p class="detail-copy">{record().description}</p>
             <Show when={record().atHigherLevel}>
               <section>
@@ -34,48 +37,6 @@ export function SpellDetailPage() {
                 <p class="detail-copy">{record().atHigherLevel}</p>
               </section>
             </Show>
-
-            <dl class="detail-grid">
-              <div>
-                <dt>Level</dt>
-                <dd>{record().level}</dd>
-              </div>
-              <div>
-                <dt>School</dt>
-                <dd>{record().school}</dd>
-              </div>
-              <div>
-                <dt>Range</dt>
-                <dd>{record().range}</dd>
-              </div>
-              <div>
-                <dt>Duration</dt>
-                <dd>{record().duration}</dd>
-              </div>
-              <div>
-                <dt>Casting time</dt>
-                <dd>{record().castingTime}</dd>
-              </div>
-              <div>
-                <dt>Classes</dt>
-                <dd>{record().classes.join(", ") || "None"}</dd>
-              </div>
-              <div>
-                <dt>Components</dt>
-                <dd>
-                  {[record().components.verbal && "V", record().components.somatic && "S", record().components.material && "M"]
-                    .filter(Boolean)
-                    .join(", ")}
-                  <Show when={record().components.materialDescription}>
-                    <span> — {record().components.materialDescription}</span>
-                  </Show>
-                </dd>
-              </div>
-              <div>
-                <dt>Page</dt>
-                <dd>{record().page ?? "—"}</dd>
-              </div>
-            </dl>
 
             <div class="action-row">
               <A href="/spells">Back to list</A>
