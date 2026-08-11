@@ -27,14 +27,6 @@ export function SpellDetailPage() {
               </div>
               <SpellBadge source={record().source} />
             </div>
-            <p class="detail-copy">{record().description}</p>
-            <Show when={record().atHigherLevel}>
-              <section>
-                <h2>At Higher Level</h2>
-                <p class="detail-copy">{record().atHigherLevel}</p>
-              </section>
-            </Show>
-
             <dl class="detail-grid">
               <div>
                 <dt>Level</dt>
@@ -57,6 +49,14 @@ export function SpellDetailPage() {
                 <dd>{record().castingTime}</dd>
               </div>
               <div>
+                <dt>Ritual</dt>
+                <dd>{record().ritual ? "Yes" : "No"}</dd>
+              </div>
+              <div>
+                <dt>Concentration</dt>
+                <dd>{record().concentration ? "Yes" : "No"}</dd>
+              </div>
+              <div>
                 <dt>Classes</dt>
                 <dd>{record().classes.join(", ") || "None"}</dd>
               </div>
@@ -76,6 +76,14 @@ export function SpellDetailPage() {
                 <dd>{record().page ?? "—"}</dd>
               </div>
             </dl>
+
+            <p class="detail-copy">{record().description}</p>
+            <Show when={record().atHigherLevel}>
+              <section>
+                <h2>At Higher Level</h2>
+                <p class="detail-copy">{record().atHigherLevel}</p>
+              </section>
+            </Show>
 
             <div class="action-row">
               <A href="/spells">Back to list</A>
