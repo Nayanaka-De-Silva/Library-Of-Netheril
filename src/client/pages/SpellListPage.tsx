@@ -1,7 +1,9 @@
-import { A, useSearchParams } from "@solidjs/router";
+import { useSearchParams } from "@solidjs/router";
 import { For, Show, createMemo, createResource } from "solid-js";
 import { Layout } from "../components/Layout";
+import { RecentlyViewedSpellsPanel } from "../components/RecentlyViewedSpellsPanel";
 import { SpellPreviewModal } from "../components/SpellPreviewModal";
+import { SpellSummaryCard } from "../components/SpellSummaryCard";
 import { api, getErrorMessage } from "../lib/api";
 import { shouldOpenInlinePreview } from "../lib/interaction";
 
@@ -25,25 +27,6 @@ const LIST_QUERY_PARAM_KEYS = [
   "sort",
   "direction",
 ] as const;
-
-const formatSpellLevelAndSchool = (level: number, school: string) => {
-  const normalizedSchool = school.toLowerCase();
-
-  if (level === 0) {
-    return `${normalizedSchool} cantrip`;
-  }
-
-  const suffix =
-    level % 10 === 1 && level % 100 !== 11
-      ? "st"
-      : level % 10 === 2 && level % 100 !== 12
-        ? "nd"
-        : level % 10 === 3 && level % 100 !== 13
-          ? "rd"
-          : "th";
-
-  return `${level}${suffix}-level ${normalizedSchool}`;
-};
 
 export function SpellListPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -107,16 +90,8 @@ export function SpellListPage() {
 
   return (
     <Layout>
-      <section class="hero card">
-        <div>
-          <p class="eyebrow">Public REST API + responsive web client</p>
-          <h1>Browse spells without bypassing the API.</h1>
-          <p>Official spells are seeded from canonical data. Custom spells are created through the same REST surface.</p>
-        </div>
-        <A href="/spells/new" class="primary-button">
-          Create Custom Spell
-        </A>
-      </section>
+      <h1 class="page-heading">Spells</h1>
+      <RecentlyViewedSpellsPanel onSpellClick={previewSpell} />
 
       <section class="card filters">
         <div class="form-grid">
@@ -190,16 +165,7 @@ export function SpellListPage() {
         <div class="list-grid">
           <For each={spells()?.data}>
             {(spell) => (
-              <A
-                href={`/spells/${spell.id}`}
-                class="card spell-list-item"
-                onClick={(event) => previewSpell(event, spell.id)}
-              >
-                <div class="spell-list-copy">
-                  <h2>{spell.name}</h2>
-                  <p class="muted">{formatSpellLevelAndSchool(spell.level, spell.school)}</p>
-                </div>
-              </A>
+              <SpellSummaryCard spell={spell} onClick={(event) => previewSpell(event, spell.id)} />
             )}
           </For>
         </div>
