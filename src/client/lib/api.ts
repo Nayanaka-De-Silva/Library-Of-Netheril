@@ -27,6 +27,13 @@ export class ApiClientError extends Error {
   }
 }
 
+// Solid resource errors are typed `unknown`; this narrows without assuming every thrown value came from `request`.
+export function getErrorMessage(error: unknown): string {
+  if (error instanceof ApiClientError) return error.message;
+  if (error instanceof Error) return error.message;
+  return "Something went wrong. Please try again.";
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE}${path}`, {
     headers: {

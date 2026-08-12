@@ -1,7 +1,30 @@
 import { A, useSearchParams } from "@solidjs/router";
 import { For, Show, createMemo, createResource } from "solid-js";
 import { Layout } from "../components/Layout";
-import { api, ApiClientError } from "../lib/api";
+import { SpellPreviewModal } from "../components/SpellPreviewModal";
+import { api, getErrorMessage } from "../lib/api";
+import { shouldOpenInlinePreview } from "../lib/interaction";
+
+// Which spell is previewed lives in the URL, so Back closes the popup instead of leaving the list.
+const PREVIEW_PARAM = "preview";
+
+// Every query param the list API accepts. Naming them (rather than iterating every searchParams
+// entry) keeps the query memo from tracking PREVIEW_PARAM, so opening or closing the preview never
+// triggers a spell list refetch — while still passing through page size/sort/direction for anyone
+// who lands on a URL that sets them explicitly.
+const LIST_QUERY_PARAM_KEYS = [
+  "search",
+  "level",
+  "school",
+  "class",
+  "ritual",
+  "concentration",
+  "source",
+  "page",
+  "pageSize",
+  "sort",
+  "direction",
+] as const;
 
 const formatSpellLevelAndSchool = (level: number, school: string) => {
   const normalizedSchool = school.toLowerCase();
@@ -27,7 +50,9 @@ export function SpellListPage() {
 
   const params = createMemo(() => {
     const next = new URLSearchParams();
-    for (const [key, value] of Object.entries(searchParams)) {
+    for (const key of LIST_QUERY_PARAM_KEYS) {
+      const value = searchParams[key];
+
       if (Array.isArray(value)) {
         for (const entry of value) next.append(key, entry);
       } else if (value) {
@@ -44,17 +69,41 @@ export function SpellListPage() {
   });
 
   const [metadata] = createResource(() => api.getMetadata());
-  const [spells] = createResource(params, (current) => api.getSpellList(current));
+  const [spells, { refetch: refetchSpells }] = createResource(params, (current) => api.getSpellList(current));
+
+  const previewedSpellId = createMemo(() => {
+    const selection = searchParams[PREVIEW_PARAM];
+    const spellId = Array.isArray(selection) ? selection[0] : selection;
+
+    // An empty `?preview=` is presence-without-a-value, not a real id — treat it the same as absent.
+    return spellId ? spellId : null;
+  });
 
   const currentPage = createMemo(() => Number(params().get("page") ?? "1"));
 
-  const updateFilter = (key: string, value: string) => {
+  // Any change to the list itself dismisses an open preview, so the popup never floats over a different result set.
+  // setSearchParams merges the patch into the current URL itself (see @solidjs/router's mergeSearchString), so
+  // there's no need to spread the existing searchParams store back in here.
+  const updateListParams = (changes: Record<string, string | undefined>) => {
     setSearchParams({
-      ...searchParams,
-      page: "1",
-      [key]: value || undefined,
+      [PREVIEW_PARAM]: undefined,
+      ...changes,
     });
   };
+
+  const updateFilter = (key: string, value: string) => {
+    updateListParams({ page: "1", [key]: value || undefined });
+  };
+
+  // Preview in place for a plain click; modifier and middle clicks stay real navigations to the detail route.
+  const previewSpell = (event: MouseEvent, spellId: string) => {
+    if (!shouldOpenInlinePreview(event)) return;
+
+    event.preventDefault();
+    setSearchParams({ [PREVIEW_PARAM]: spellId });
+  };
+
+  const closePreview = () => setSearchParams({ [PREVIEW_PARAM]: undefined });
 
   return (
     <Layout>
@@ -134,14 +183,18 @@ export function SpellListPage() {
         <div class="state-panel">Loading spells…</div>
       </Show>
       <Show when={spells.error}>
-        <div class="error-panel">{(spells.error as ApiClientError).message}</div>
+        <div class="error-panel">{getErrorMessage(spells.error)}</div>
       </Show>
 
       <Show when={spells()?.data.length}>
         <div class="list-grid">
           <For each={spells()?.data}>
             {(spell) => (
-              <A href={`/spells/${spell.id}`} class="card spell-list-item">
+              <A
+                href={`/spells/${spell.id}`}
+                class="card spell-list-item"
+                onClick={(event) => previewSpell(event, spell.id)}
+              >
                 <div class="spell-list-copy">
                   <h2>{spell.name}</h2>
                   <p class="muted">{formatSpellLevelAndSchool(spell.level, spell.school)}</p>
@@ -165,13 +218,13 @@ export function SpellListPage() {
             <div class="pagination-controls">
               <button
                 disabled={currentPage() <= 1}
-                onClick={() => setSearchParams({ ...searchParams, page: String(currentPage() - 1) })}
+                onClick={() => updateListParams({ page: String(currentPage() - 1) })}
               >
                 Previous
               </button>
               <button
                 disabled={currentPage() >= result().meta.totalPages}
-                onClick={() => setSearchParams({ ...searchParams, page: String(currentPage() + 1) })}
+                onClick={() => updateListParams({ page: String(currentPage() + 1) })}
               >
                 Next
               </button>
@@ -179,6 +232,15 @@ export function SpellListPage() {
           </div>
         )}
       </Show>
+
+      <SpellPreviewModal
+        spellId={previewedSpellId()}
+        onClose={closePreview}
+        onDeleted={() => {
+          closePreview();
+          void refetchSpells();
+        }}
+      />
     </Layout>
   );
 }

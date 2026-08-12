@@ -1,9 +1,8 @@
 import { A, useNavigate, useParams } from "@solidjs/router";
 import { Show, createResource } from "solid-js";
 import { Layout } from "../components/Layout";
-import { SpellBadge } from "../components/SpellBadge";
-import { SpellStatGrid } from "../components/SpellStatGrid";
-import { api, ApiClientError } from "../lib/api";
+import { SpellDetailView } from "../components/SpellDetailView";
+import { api, getErrorMessage } from "../lib/api";
 
 export function SpellDetailPage() {
   const params = useParams();
@@ -16,48 +15,16 @@ export function SpellDetailPage() {
         <div class="state-panel">Loading spell…</div>
       </Show>
       <Show when={spell.error}>
-        <div class="error-panel">{(spell.error as ApiClientError).message}</div>
+        <div class="error-panel">{getErrorMessage(spell.error)}</div>
       </Show>
       <Show when={spell()}>
         {(record) => (
           <article class="card detail-card">
-            <div class="detail-header">
-              <div>
-                <p class="eyebrow">{record().id}</p>
-                <h1>{record().name}</h1>
-              </div>
-              <SpellBadge source={record().source} />
-            </div>
-            <SpellStatGrid spell={record()} />
-
-            <p class="detail-copy">{record().description}</p>
-            <Show when={record().atHigherLevel}>
-              <section>
-                <h2>At Higher Level</h2>
-                <p class="detail-copy">{record().atHigherLevel}</p>
-              </section>
-            </Show>
-
-            <div class="action-row">
-              <A href="/spells">Back to list</A>
-              <Show when={record().source === "custom"}>
-                <div class="action-row">
-                  <A href={`/spells/${record().id}/edit`} class="button-link">
-                    Edit
-                  </A>
-                  <button
-                    class="danger-button"
-                    onClick={async () => {
-                      if (!window.confirm("Delete this custom spell?")) return;
-                      await api.deleteSpell(record().id);
-                      navigate("/spells");
-                    }}
-                  >
-                    Delete
-                  </button>
-                </div>
-              </Show>
-            </div>
+            <SpellDetailView
+              spell={record()}
+              onDeleted={() => navigate("/spells")}
+              navigationAction={<A href="/spells">Back to list</A>}
+            />
           </article>
         )}
       </Show>
