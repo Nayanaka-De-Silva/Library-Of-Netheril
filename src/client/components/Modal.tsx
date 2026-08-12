@@ -8,7 +8,10 @@ type ModalProps = {
   children: JSX.Element;
 };
 
-// Generic overlay dialog: closes on backdrop click or Escape, and hands focus back where it came from.
+const FOCUSABLE_SELECTOR = 'a[href], button:not([disabled]), textarea, input, select, [tabindex]:not([tabindex="-1"])';
+
+// Generic overlay dialog: closes on backdrop click or Escape, traps Tab inside the panel while open,
+// and hands focus back where it came from.
 export function Modal(props: ModalProps) {
   let dialog: HTMLDivElement | undefined;
 
@@ -20,13 +23,40 @@ export function Modal(props: ModalProps) {
     document.body.style.overflow = "hidden";
     dialog?.focus();
 
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") props.onClose();
+    const getFocusable = (): HTMLElement[] =>
+      dialog ? Array.from(dialog.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)) : [];
+
+    const handleKeydown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        props.onClose();
+        return;
+      }
+
+      if (event.key !== "Tab") return;
+
+      // Keep keyboard focus inside the dialog so Tab can't reach the page still visible behind the backdrop.
+      const focusable = getFocusable();
+      if (focusable.length === 0) {
+        event.preventDefault();
+        dialog?.focus();
+        return;
+      }
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
     };
-    document.addEventListener("keydown", closeOnEscape);
+    document.addEventListener("keydown", handleKeydown);
 
     onCleanup(() => {
-      document.removeEventListener("keydown", closeOnEscape);
+      document.removeEventListener("keydown", handleKeydown);
       document.body.style.overflow = previousOverflow;
       previouslyFocused?.focus();
     });

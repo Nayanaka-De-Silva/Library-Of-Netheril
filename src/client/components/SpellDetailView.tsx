@@ -1,8 +1,8 @@
 import { A } from "@solidjs/router";
-import { Show, type JSX } from "solid-js";
+import { Show, createSignal, type JSX } from "solid-js";
 import { SpellBadge } from "./SpellBadge";
 import { SpellStatGrid } from "./SpellStatGrid";
-import { api } from "../lib/api";
+import { api, getErrorMessage } from "../lib/api";
 import type { Spell } from "../../shared/schemas";
 
 type SpellDetailViewProps = {
@@ -15,10 +15,19 @@ type SpellDetailViewProps = {
 
 // Shared spell presentation used by both the detail route and the in-list preview modal.
 export function SpellDetailView(props: SpellDetailViewProps) {
+  const [deleteError, setDeleteError] = createSignal<string | null>(null);
+
   const deleteSpell = async () => {
     if (!window.confirm("Delete this custom spell?")) return;
-    await api.deleteSpell(props.spell.id);
-    props.onDeleted();
+
+    setDeleteError(null);
+    try {
+      await api.deleteSpell(props.spell.id);
+      props.onDeleted();
+    } catch (error) {
+      // Surface the failure instead of leaving the caller staring at a dialog that silently did nothing.
+      setDeleteError(getErrorMessage(error));
+    }
   };
 
   return (
@@ -40,10 +49,14 @@ export function SpellDetailView(props: SpellDetailViewProps) {
         </section>
       </Show>
 
+      <Show when={deleteError()}>
+        <div class="error-panel">{deleteError()}</div>
+      </Show>
+
       <div class="action-row">
         {props.navigationAction}
         <Show when={props.spell.source === "custom"}>
-          <div class="action-row">
+          <div class="action-buttons">
             <A href={`/spells/${props.spell.id}/edit`} class="button-link">
               Edit
             </A>

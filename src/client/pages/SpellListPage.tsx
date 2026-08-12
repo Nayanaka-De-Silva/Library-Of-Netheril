@@ -2,16 +2,29 @@ import { A, useSearchParams } from "@solidjs/router";
 import { For, Show, createMemo, createResource } from "solid-js";
 import { Layout } from "../components/Layout";
 import { SpellPreviewModal } from "../components/SpellPreviewModal";
-import { api, ApiClientError } from "../lib/api";
+import { api, getErrorMessage } from "../lib/api";
 import { shouldOpenInlinePreview } from "../lib/interaction";
 
 // Which spell is previewed lives in the URL, so Back closes the popup instead of leaving the list.
 const PREVIEW_PARAM = "preview";
 
-// The list query only ever reads these keys. Naming them (rather than iterating every searchParams
+// Every query param the list API accepts. Naming them (rather than iterating every searchParams
 // entry) keeps the query memo from tracking PREVIEW_PARAM, so opening or closing the preview never
-// triggers a spell list refetch.
-const LIST_QUERY_PARAM_KEYS = ["search", "level", "school", "class", "ritual", "concentration", "source", "page"] as const;
+// triggers a spell list refetch — while still passing through page size/sort/direction for anyone
+// who lands on a URL that sets them explicitly.
+const LIST_QUERY_PARAM_KEYS = [
+  "search",
+  "level",
+  "school",
+  "class",
+  "ritual",
+  "concentration",
+  "source",
+  "page",
+  "pageSize",
+  "sort",
+  "direction",
+] as const;
 
 const formatSpellLevelAndSchool = (level: number, school: string) => {
   const normalizedSchool = school.toLowerCase();
@@ -60,16 +73,19 @@ export function SpellListPage() {
 
   const previewedSpellId = createMemo(() => {
     const selection = searchParams[PREVIEW_PARAM];
+    const spellId = Array.isArray(selection) ? selection[0] : selection;
 
-    return (Array.isArray(selection) ? selection[0] : selection) ?? null;
+    // An empty `?preview=` is presence-without-a-value, not a real id — treat it the same as absent.
+    return spellId ? spellId : null;
   });
 
   const currentPage = createMemo(() => Number(params().get("page") ?? "1"));
 
   // Any change to the list itself dismisses an open preview, so the popup never floats over a different result set.
+  // setSearchParams merges the patch into the current URL itself (see @solidjs/router's mergeSearchString), so
+  // there's no need to spread the existing searchParams store back in here.
   const updateListParams = (changes: Record<string, string | undefined>) => {
     setSearchParams({
-      ...searchParams,
       [PREVIEW_PARAM]: undefined,
       ...changes,
     });
@@ -167,7 +183,7 @@ export function SpellListPage() {
         <div class="state-panel">Loading spells…</div>
       </Show>
       <Show when={spells.error}>
-        <div class="error-panel">{(spells.error as ApiClientError).message}</div>
+        <div class="error-panel">{getErrorMessage(spells.error)}</div>
       </Show>
 
       <Show when={spells()?.data.length}>

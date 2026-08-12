@@ -29,16 +29,24 @@ const fireball: Spell = {
 
 const getSpellList = vi.fn();
 const getSpell = vi.fn();
+const deleteSpell = vi.fn();
 
-vi.mock("../../src/client/lib/api", () => ({
-  ApiClientError: class ApiClientError extends Error {},
-  api: {
-    getSpellList: (params: URLSearchParams) => getSpellList(params),
-    getSpell: (id: string) => getSpell(id),
-    getMetadata: () => Promise.resolve({ schools: [], classes: [], levels: [], sources: [], listSources: [] }),
-    deleteSpell: () => Promise.resolve(),
-  },
-}));
+vi.mock("../../src/client/lib/api", async (importOriginal) => {
+  // Keep the real ApiClientError/getErrorMessage so error-rendering paths are exercised for real;
+  // only the network-touching `api` methods are replaced with test doubles.
+  const actual = await importOriginal<typeof import("../../src/client/lib/api")>();
+
+  return {
+    ApiClientError: actual.ApiClientError,
+    getErrorMessage: actual.getErrorMessage,
+    api: {
+      getSpellList: (params: URLSearchParams) => getSpellList(params),
+      getSpell: (id: string) => getSpell(id),
+      getMetadata: () => Promise.resolve({ schools: [], classes: [], levels: [], sources: [], listSources: [] }),
+      deleteSpell: (id: string) => deleteSpell(id),
+    },
+  };
+});
 
 afterEach(() => {
   cleanup();
@@ -94,12 +102,41 @@ describe("Modal", () => {
 
     expect(onClose).toHaveBeenCalledOnce();
   });
+
+  it("wraps Tab from the last focusable element back to the first", () => {
+    render(() => (
+      <Modal open onClose={() => {}} label="Spell details">
+        <button type="button">One</button>
+        <button type="button">Two</button>
+      </Modal>
+    ));
+
+    screen.getByText("Two").focus();
+    fireEvent.keyDown(document, { key: "Tab" });
+
+    // The close (×) button renders before the children, so it's the trap's first stop.
+    expect(document.activeElement).toBe(screen.getByLabelText("Close"));
+  });
+
+  it("wraps Shift+Tab from the first focusable element to the last", () => {
+    render(() => (
+      <Modal open onClose={() => {}} label="Spell details">
+        <button type="button">One</button>
+        <button type="button">Two</button>
+      </Modal>
+    ));
+
+    screen.getByLabelText("Close").focus();
+    fireEvent.keyDown(document, { key: "Tab", shiftKey: true });
+
+    expect(document.activeElement).toBe(screen.getByText("Two"));
+  });
 });
 
 describe("spell preview on the list page", () => {
-  const renderFilteredList = () => {
+  const renderFilteredList = (query = "/spells?school=evocation") => {
     const history = createMemoryHistory();
-    history.set({ value: "/spells?school=evocation" });
+    history.set({ value: query });
 
     render(() => (
       <MemoryRouter history={history}>
@@ -117,6 +154,7 @@ describe("spell preview on the list page", () => {
       meta: { page: 1, pageSize: 25, totalItems: 1, totalPages: 1 },
     });
     getSpell.mockResolvedValue(fireball);
+    deleteSpell.mockResolvedValue(undefined);
   });
 
   it("opens the spell over the list instead of navigating to the detail page", async () => {
@@ -178,6 +216,57 @@ describe("spell preview on the list page", () => {
     ));
 
     expect(await screen.findByRole("dialog")).toBeTruthy();
+  });
+
+  it("treats an empty preview param as no selection", async () => {
+    renderFilteredList("/spells?school=evocation&preview=");
+
+    await screen.findByText("Fireball");
+
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(getSpell).not.toHaveBeenCalled();
+  });
+
+  it("passes an explicit pageSize, sort, and direction through to the list query", async () => {
+    renderFilteredList("/spells?pageSize=50&sort=name&direction=desc");
+
+    await screen.findByText("Fireball");
+
+    const requestedParams = getSpellList.mock.calls[0][0] as URLSearchParams;
+    expect(requestedParams.get("pageSize")).toBe("50");
+    expect(requestedParams.get("direction")).toBe("desc");
+  });
+
+  it("reuses a cached spell record when the same preview is reopened", async () => {
+    renderFilteredList();
+    fireEvent.click(await screen.findByText("Fireball"));
+    await screen.findByRole("dialog");
+    expect(getSpell).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(document.querySelector(".modal-backdrop")!);
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+
+    fireEvent.click(screen.getByText("Fireball"));
+    await screen.findByRole("dialog");
+
+    expect(getSpell).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows an error and keeps the modal open when deleting a custom spell fails", async () => {
+    getSpell.mockResolvedValueOnce({ ...fireball, source: "custom" });
+    deleteSpell.mockRejectedValueOnce(new Error("Spell is already deleted."));
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+
+    renderFilteredList();
+    fireEvent.click(await screen.findByText("Fireball"));
+    await screen.findByRole("dialog");
+
+    fireEvent.click(screen.getByText("Delete"));
+
+    expect(await screen.findByText("Spell is already deleted.")).toBeTruthy();
+    expect(screen.getByRole("dialog")).toBeTruthy();
+
+    confirmSpy.mockRestore();
   });
 
   it("leaves modifier clicks to the browser so a new tab still works", async () => {

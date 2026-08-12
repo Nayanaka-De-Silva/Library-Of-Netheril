@@ -2,7 +2,7 @@ import { A, useNavigate, useParams } from "@solidjs/router";
 import { Show, createResource } from "solid-js";
 import { Layout } from "../components/Layout";
 import { SpellDetailView } from "../components/SpellDetailView";
-import { api, ApiClientError } from "../lib/api";
+import { api, getErrorMessage } from "../lib/api";
 
 export function SpellDetailPage() {
   const params = useParams();
@@ -15,7 +15,7 @@ export function SpellDetailPage() {
         <div class="state-panel">Loading spell…</div>
       </Show>
       <Show when={spell.error}>
-        <div class="error-panel">{(spell.error as ApiClientError).message}</div>
+        <div class="error-panel">{getErrorMessage(spell.error)}</div>
       </Show>
       <Show when={spell()}>
         {(record) => (

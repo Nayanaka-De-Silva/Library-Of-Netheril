@@ -89,6 +89,12 @@ button:hover,
   justify-content: space-between;
 }
 
+.action-buttons {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
 .site-header {
   gap: 1rem;
   max-width: 1200px;
