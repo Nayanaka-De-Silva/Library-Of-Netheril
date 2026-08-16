@@ -70,7 +70,6 @@ button:hover,
 
 .site-header,
 .page-container,
-.hero,
 .detail-header,
 .action-row,
 .pagination,
@@ -80,7 +79,6 @@ button:hover,
 }
 
 .site-header,
-.hero,
 .detail-header,
 .pagination,
 .top-nav,
@@ -134,9 +132,6 @@ button:hover,
   box-shadow: 0 16px 48px rgba(0, 0, 0, 0.2);
 }
 
-.hero {
-  gap: 1rem;
-}
 
 .filters .form-grid,
 .spell-form .form-grid {
@@ -199,6 +194,32 @@ textarea {
 .detail-header .badge {
   flex-shrink: 0;
   align-self: flex-start;
+}
+
+.page-heading {
+  margin: 0;
+  font-size: 1.5rem;
+}
+
+.recently-viewed {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.recently-viewed h2 {
+  margin: 0;
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+
+.recently-viewed-grid {
+  display: grid;
+  gap: 0.75rem;
+  /* Tighter min than .list-grid (260px) since at most 5 compact entries fit in one row. */
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
 }
 
 .badge {
@@ -333,7 +354,6 @@ textarea {
   }
 
   .site-header,
-  .hero,
   .detail-header,
   .pagination,
   .action-row {

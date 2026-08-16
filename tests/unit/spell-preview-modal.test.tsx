@@ -4,6 +4,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-li
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Modal } from "../../src/client/components/Modal";
 import { SpellListPage } from "../../src/client/pages/SpellListPage";
+import { __resetRecentlyViewedForTests } from "../../src/client/lib/recentlyViewed";
 import type { Spell } from "../../src/shared/schemas";
 
 const fireball: Spell = {
@@ -49,6 +50,9 @@ vi.mock("../../src/client/lib/api", async (importOriginal) => {
 });
 
 afterEach(() => {
+  // Reset the module-scope signal first so the panel unmounts cleanly while the Solid tree is still
+  // alive. Resetting after cleanup() causes deferred reactive flushes on an already-disposed tree.
+  __resetRecentlyViewedForTests();
   cleanup();
   vi.clearAllMocks();
 });
@@ -188,7 +192,8 @@ describe("spell preview on the list page", () => {
     fireEvent.click(document.querySelector(".modal-backdrop")!);
 
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-    expect(screen.getByText("Fireball")).toBeTruthy();
+    // Fireball now appears in both the list row and the recently-viewed panel — use getAllByText.
+    expect(screen.getAllByText("Fireball").length).toBeGreaterThan(0);
     expect(history.get()).toContain("school=evocation");
     expect(history.get()).not.toContain("preview=");
   });
@@ -201,7 +206,8 @@ describe("spell preview on the list page", () => {
     history.back();
 
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-    expect(screen.getByText("Fireball")).toBeTruthy();
+    // Fireball now appears in both the list row and the recently-viewed panel — use getAllByText.
+    expect(screen.getAllByText("Fireball").length).toBeGreaterThan(0);
     expect(history.get()).toContain("school=evocation");
   });
 
@@ -246,7 +252,10 @@ describe("spell preview on the list page", () => {
     fireEvent.click(document.querySelector(".modal-backdrop")!);
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
 
-    fireEvent.click(screen.getByText("Fireball"));
+    // After closing the preview, Fireball appears in both the list and the recently-viewed panel.
+    // Click the list-row entry (last in DOM order since the panel renders above the list).
+    const fireballs = screen.getAllByText("Fireball");
+    fireEvent.click(fireballs[fireballs.length - 1]);
     await screen.findByRole("dialog");
 
     expect(getSpell).toHaveBeenCalledTimes(1);
@@ -275,5 +284,98 @@ describe("spell preview on the list page", () => {
     fireEvent.click(await screen.findByText("Fireball"), { ctrlKey: true });
 
     expect(screen.queryByRole("dialog")).toBeNull();
+  });
+});
+
+describe("recently viewed dashboard", () => {
+  const renderFilteredList = (query = "/spells?school=evocation") => {
+    const history = createMemoryHistory();
+    history.set({ value: query });
+
+    render(() => (
+      <MemoryRouter history={history}>
+        <Route path="/spells" component={SpellListPage} />
+        <Route path="/spells/:id" component={() => <p>full detail page</p>} />
+      </MemoryRouter>
+    ));
+
+    return history;
+  };
+
+  beforeEach(() => {
+    getSpellList.mockResolvedValue({
+      data: [{ id: fireball.id, name: fireball.name, level: fireball.level, school: fireball.school }],
+      meta: { page: 1, pageSize: 25, totalItems: 1, totalPages: 1 },
+    });
+    getSpell.mockResolvedValue(fireball);
+  });
+
+  it("does not render the old hero copy but does have an h1 page heading", async () => {
+    renderFilteredList();
+    await screen.findByText("Fireball");
+
+    // Old hero prose is gone.
+    expect(screen.queryByText("Browse spells without bypassing the API.")).toBeNull();
+    expect(screen.queryByText("Create Custom Spell")).toBeNull();
+
+    // A real page heading exists for accessibility / document outline.
+    const headings = document.querySelectorAll("h1");
+    // At most one h1 should be visible on the list page (no modal open).
+    const visibleH1s = Array.from(headings).filter((h) => h.closest("[role=dialog]") === null);
+    expect(visibleH1s.length).toBeGreaterThanOrEqual(1);
+    expect(visibleH1s.some((h) => h.textContent?.trim() === "Spells")).toBe(true);
+  });
+
+  it("still shows the New Custom Spell nav link from the layout", async () => {
+    renderFilteredList();
+    await screen.findByText("Fireball");
+
+    expect(screen.getByText("New Custom Spell")).toBeTruthy();
+  });
+
+  it("shows no recently-viewed section before any spell is previewed", async () => {
+    renderFilteredList();
+    await screen.findByText("Fireball");
+
+    expect(screen.queryByText("Recently viewed")).toBeNull();
+  });
+
+  it("shows Fireball under .recently-viewed after its preview is opened", async () => {
+    renderFilteredList();
+    fireEvent.click(await screen.findByText("Fireball"));
+    await screen.findByRole("dialog");
+
+    // Close the modal so the dashboard becomes visible in the list view.
+    fireEvent.click(document.querySelector(".modal-backdrop")!);
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+
+    // Scope to .recently-viewed so we distinguish the dashboard entry from the list-row entry.
+    const panel = document.querySelector(".recently-viewed")!;
+    expect(panel).toBeTruthy();
+    expect(panel.textContent).toContain("Fireball");
+  });
+
+  it("removes a deleted custom spell from the recently-viewed panel", async () => {
+    getSpell.mockResolvedValue({ ...fireball, source: "custom" });
+    deleteSpell.mockResolvedValue(undefined);
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+
+    renderFilteredList();
+
+    // Open the preview — this records the spell as recently viewed.
+    fireEvent.click(await screen.findByText("Fireball"));
+    await screen.findByRole("dialog");
+
+    // Verify the panel is visible (spell was recorded).
+    await waitFor(() => expect(document.querySelector(".recently-viewed")).not.toBeNull());
+
+    // Delete the spell.
+    fireEvent.click(screen.getByText("Delete"));
+
+    // After deletion the modal closes and forgetSpellView removes it from the panel.
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(document.querySelector(".recently-viewed")).toBeNull();
+
+    confirmSpy.mockRestore();
   });
 });

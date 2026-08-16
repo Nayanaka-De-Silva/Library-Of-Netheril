@@ -1,8 +1,9 @@
 import { A } from "@solidjs/router";
-import { Show, createSignal, type JSX } from "solid-js";
+import { Show, createEffect, createSignal, on, type JSX } from "solid-js";
 import { SpellBadge } from "./SpellBadge";
 import { SpellStatGrid } from "./SpellStatGrid";
 import { api, getErrorMessage } from "../lib/api";
+import { forgetSpellView, recordSpellView } from "../lib/recentlyViewed";
 import type { Spell } from "../../shared/schemas";
 
 type SpellDetailViewProps = {
@@ -17,12 +18,25 @@ type SpellDetailViewProps = {
 export function SpellDetailView(props: SpellDetailViewProps) {
   const [deleteError, setDeleteError] = createSignal<string | null>(null);
 
+  // Record a view each time props.spell changes — covers both route param changes and repeated
+  // preview opens on an already-mounted instance, which a plain non-reactive call would miss.
+  // on() untracks its callback body, so recordSpellView's internal recentlyViewedSpells() read
+  // does not create a reactive dependency here and cannot cause a write→re-trigger loop.
+  createEffect(
+    on(
+      () => props.spell,
+      (spell) => recordSpellView({ id: spell.id, name: spell.name, level: spell.level, school: spell.school }),
+    ),
+  );
+
   const deleteSpell = async () => {
     if (!window.confirm("Delete this custom spell?")) return;
 
     setDeleteError(null);
     try {
       await api.deleteSpell(props.spell.id);
+      // Purge from the recently-viewed store before handing off, so the panel updates atomically.
+      forgetSpellView(props.spell.id);
       props.onDeleted();
     } catch (error) {
       // Surface the failure instead of leaving the caller staring at a dialog that silently did nothing.
