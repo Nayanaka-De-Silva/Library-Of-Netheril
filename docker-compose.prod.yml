@@ -12,6 +12,9 @@ services:
       CORS_ORIGIN: ${CORS_ORIGIN:-*}
     volumes:
       - library_of_netheril_data:/app/persist
+    networks:
+      - default
+      - netheril-integration
     healthcheck:
       test:
         [
@@ -24,6 +27,11 @@ services:
       timeout: 5s
       retries: 12
       start_period: 10s
+
+networks:
+  default:
+  netheril-integration:
+    external: true
 
 volumes:
   library_of_netheril_data:
