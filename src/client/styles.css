@@ -167,7 +167,9 @@ textarea {
 .list-grid {
   display: grid;
   gap: 1rem;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  /* auto-fill (not auto-fit) keeps empty tracks reserved so a small filtered
+     result set stays card-sized instead of stretching to fill the row. */
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
 }
 
 .spell-list-item {
