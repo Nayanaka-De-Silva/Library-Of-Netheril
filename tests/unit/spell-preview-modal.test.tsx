@@ -233,6 +233,30 @@ describe("spell preview on the list page", () => {
     expect(getSpell).not.toHaveBeenCalled();
   });
 
+  it("clears the search text and every active filter when Clear filters is clicked", async () => {
+    const history = renderFilteredList(
+      "/spells?search=fire&school=evocation&level=3&class=wizard&source=custom&ritual=true&concentration=true&page=2",
+    );
+    await screen.findByText("Fireball");
+    getSpellList.mockClear();
+
+    fireEvent.click(screen.getByText("Clear filters"));
+
+    await waitFor(() => expect(getSpellList).toHaveBeenCalled());
+    expect(history.get()).not.toContain("search=");
+    expect(history.get()).not.toContain("school=");
+    expect(history.get()).not.toContain("level=");
+    expect(history.get()).not.toContain("class=");
+    expect(history.get()).not.toContain("source=");
+    expect(history.get()).not.toContain("ritual=");
+    expect(history.get()).not.toContain("concentration=");
+
+    const requestedParams = getSpellList.mock.calls[0][0] as URLSearchParams;
+    expect(requestedParams.get("page")).toBe("1");
+    expect(requestedParams.has("search")).toBe(false);
+    expect(requestedParams.has("school")).toBe(false);
+  });
+
   it("passes an explicit pageSize, sort, and direction through to the list query", async () => {
     renderFilteredList("/spells?pageSize=50&sort=name&direction=desc");
 

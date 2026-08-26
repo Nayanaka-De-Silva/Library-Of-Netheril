@@ -78,6 +78,19 @@ export function SpellListPage() {
     updateListParams({ page: "1", [key]: value || undefined });
   };
 
+  const clearFilters = () => {
+    updateListParams({
+      search: undefined,
+      level: undefined,
+      school: undefined,
+      class: undefined,
+      source: undefined,
+      ritual: undefined,
+      concentration: undefined,
+      page: "1",
+    });
+  };
+
   // Preview in place for a plain click; modifier and middle clicks stay real navigations to the detail route.
   const previewSpell = (event: MouseEvent, spellId: string) => {
     if (!shouldOpenInlinePreview(event)) return;
@@ -152,6 +165,9 @@ export function SpellListPage() {
             </select>
           </label>
         </div>
+        <button type="button" onClick={clearFilters}>
+          Clear filters
+        </button>
       </section>
 
       <Show when={spells.loading}>
