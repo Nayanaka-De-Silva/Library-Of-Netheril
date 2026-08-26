@@ -253,8 +253,9 @@ describe("spell preview on the list page", () => {
 
     const requestedParams = getSpellList.mock.calls[0][0] as URLSearchParams;
     expect(requestedParams.get("page")).toBe("1");
-    expect(requestedParams.has("search")).toBe(false);
-    expect(requestedParams.has("school")).toBe(false);
+    for (const key of ["search", "level", "school", "class", "source", "ritual", "concentration"]) {
+      expect(requestedParams.has(key)).toBe(false);
+    }
   });
 
   it("passes an explicit pageSize, sort, and direction through to the list query", async () => {

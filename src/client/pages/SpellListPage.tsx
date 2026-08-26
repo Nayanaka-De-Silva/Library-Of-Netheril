@@ -10,23 +10,15 @@ import { shouldOpenInlinePreview } from "../lib/interaction";
 // Which spell is previewed lives in the URL, so Back closes the popup instead of leaving the list.
 const PREVIEW_PARAM = "preview";
 
+// Every filter the search section exposes. Shared by the query memo and "Clear filters" so the two
+// never drift apart — a new filter added here is picked up by both automatically.
+const FILTER_PARAM_KEYS = ["search", "level", "school", "class", "source", "ritual", "concentration"] as const;
+
 // Every query param the list API accepts. Naming them (rather than iterating every searchParams
 // entry) keeps the query memo from tracking PREVIEW_PARAM, so opening or closing the preview never
 // triggers a spell list refetch — while still passing through page size/sort/direction for anyone
 // who lands on a URL that sets them explicitly.
-const LIST_QUERY_PARAM_KEYS = [
-  "search",
-  "level",
-  "school",
-  "class",
-  "ritual",
-  "concentration",
-  "source",
-  "page",
-  "pageSize",
-  "sort",
-  "direction",
-] as const;
+const LIST_QUERY_PARAM_KEYS = [...FILTER_PARAM_KEYS, "page", "pageSize", "sort", "direction"] as const;
 
 export function SpellListPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -79,16 +71,8 @@ export function SpellListPage() {
   };
 
   const clearFilters = () => {
-    updateListParams({
-      search: undefined,
-      level: undefined,
-      school: undefined,
-      class: undefined,
-      source: undefined,
-      ritual: undefined,
-      concentration: undefined,
-      page: "1",
-    });
+    const cleared = Object.fromEntries(FILTER_PARAM_KEYS.map((key) => [key, undefined]));
+    updateListParams({ ...cleared, page: "1" });
   };
 
   // Preview in place for a plain click; modifier and middle clicks stay real navigations to the detail route.
