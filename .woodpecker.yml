@@ -33,7 +33,7 @@ steps:
       - build-image
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - /home/krystler/containers/library-of-netheril:/deploy
+      - /opt/stacks/library-of-netheril:/deploy
     commands:
       - mkdir -p /deploy
       - cp docker-compose.prod.yml /deploy/docker-compose.yml

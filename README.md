@@ -1,41 +1,91 @@
 # Library of Netheril
 
-API-first D&D 5e spell library built as a single TypeScript project with:
+An **API-first** spell library for Dungeons & Dragons 5th Edition (2014). Library of
+Netheril is the single source of truth for spell data across a suite of tabletop
+tools: other apps store only a stable spell `id` and fetch the full record from
+this service on demand.
 
-- SolidJS frontend
-- Hono REST API
-- SQLite + Drizzle ORM
-- Vitest tests
-- Docker packaging
+The REST API is the primary surface. The bundled web UI is a client of that same
+public API — it has no private data path.
 
-## Project structure
+> Part of a suite of self-hosted tabletop tools, each built in a different stack:
+> **Library of Netheril** (spells · TypeScript/SolidJS/Hono) ·
+> [Many Faced God](https://github.com/Nayanaka-De-Silva/Many-Faced-God) (NPCs · Laravel) ·
+> [Bank of Vivaldi](https://github.com/Nayanaka-De-Silva/Bank-Of-Vivaldi) (inventory · Go) ·
+> [Manticore Arena](https://github.com/Nayanaka-De-Silva/Manticore-Arena) (combat tracker · TypeScript).
 
-- `src/client` - SolidJS SPA
-- `src/server` - Hono API and SQLite bootstrap
-- `src/shared` - shared types, schemas, and normalization
-- `data/spells.json` - canonical official spell seed data
-- `drizzle/0000_initial.sql` - committed migration history
+## Features
 
-## Local setup
+- **Browse and search** the full 2014 spell list — filter by level, school, class,
+  ritual, concentration, and source; sort by name.
+- **Spell detail pages** in a readable card layout, with higher-level effects,
+  components, and source page references.
+- **Custom spells** — create, edit, and delete homebrew spells through the UI or the
+  API. Custom spells get stable `custom-<uuid>` IDs and live alongside official
+  data.
+- **Official spells are read-only** — attempts to edit or delete them return a
+  `409 OFFICIAL_SPELL_READ_ONLY`.
+- **Idempotent seeding** — official spells load from `data/spells.json` on every
+  boot, matched by `id`, without duplicating rows or touching custom spells.
+- **Stable IDs** — official spell IDs come from the seed file and are never
+  regenerated from runtime state, so downstream references never break.
+- **Machine-readable contract** — OpenAPI document served at
+  `/api/v1/openapi.json`.
+- **Configurable CORS** so browser-based tools can call the API cross-origin.
+
+## Tech stack
+
+| Layer | Choice |
+|---|---|
+| Language | TypeScript (all application code) |
+| Runtime | Bun for dev and production start; Node build target via `tsc` |
+| Frontend | SolidJS + `@solidjs/router`, built with Vite |
+| API framework | Hono, with `@hono/zod-validator` |
+| Database | SQLite via `better-sqlite3` |
+| Schema / queries | Drizzle ORM + Drizzle Kit migrations |
+| Validation | Zod (shared client/server schemas) |
+| Tests | Vitest (+ `@solidjs/testing-library`, jsdom) |
+| Packaging | Multi-stage Docker image, `x86_64` and `arm64` |
+| CI/CD | Woodpecker |
+
+## Architecture
+
+One repository, one deployable, clear internal seams:
+
+```
+src/
+  client/        SolidJS SPA — components, pages, API client. Talks only to /api/v1.
+  server/        Hono API, SQLite bootstrap, seeding, repositories, services.
+  shared/        Types, Zod schemas, and normalization shared by both sides.
+data/spells.json canonical official seed data (committed)
+drizzle/         committed SQL migration history
+```
+
+The frontend never imports server code or reaches the database directly — it uses
+the exact endpoints an external integrator would.
+
+## Quick start
+
+Requires Node and either Bun or npm. Docker optional.
 
 ```bash
 npm install
-bun run seed:canonicalize
+npm run seed:canonicalize   # regenerate data/spells.json from the raw source
 npm run build
 npm test
 ```
 
 ### Development
 
-Run the API and Vite client together:
+Run the API and the Vite client together:
 
 ```bash
 npm run dev
 ```
 
-- API: `http://localhost:3000`
-- Web app: `http://localhost:5173`
-- OpenAPI document: `http://localhost:3000/api/v1/openapi.json`
+- API: <http://localhost:3000>
+- Web app: <http://localhost:5173>
+- OpenAPI document: <http://localhost:3000/api/v1/openapi.json>
 
 ### Production-style local run
 
@@ -44,47 +94,53 @@ npm run build
 npm run start
 ```
 
-## Environment
+### Docker
 
-Copy `.env.example` to `.env` if needed.
+```bash
+docker compose up --build
+```
 
-- `PORT` - HTTP port, default `3000`
-- `DATABASE_URL` - SQLite file path, default `./.data/library-of-netheril.sqlite`
-- `CORS_ORIGIN` - `*` or a comma-separated allowlist
+One HTTP port on `3000`; SQLite data persists in a Docker volume mounted at
+`/app/persist`.
 
-`CORS_ORIGIN=*` is convenient for local work but should only be used in trusted environments.
+## Configuration
 
-## Canonical seed file
+Copy `.env.example` to `.env` to override defaults.
 
-`data/spells.json` is the committed canonical official dataset used at runtime.
+| Variable | Default | Description |
+|---|---|---|
+| `PORT` | `3000` | HTTP port |
+| `DATABASE_URL` | `./.data/library-of-netheril.sqlite` | SQLite file path |
+| `CORS_ORIGIN` | `*` | `*` or a comma-separated allowlist |
 
-Each spell includes:
+`CORS_ORIGIN=*` is convenient locally but should only be used in trusted
+environments.
 
-- stable `id`
-- `slug`
-- normalized plain-text `description`
-- normalized booleans and numeric `level`
-- controlled `school` and `classes`
-- `source: "official"`
-- deterministic seed timestamps
-
-The raw source file at project root (`spells.json`) is only used to generate the canonical file.
-
-## API summary
+## API
 
 Base path: `/api/v1`
 
-- `GET /health`
-- `GET /spells`
-- `GET /spells/:id`
-- `POST /spells`
-- `PUT /spells/:id`
-- `PATCH /spells/:id`
-- `DELETE /spells/:id`
-- `GET /metadata`
-- `GET /openapi.json`
+| Method | Path | Purpose |
+|---|---|---|
+| `GET` | `/health` | Health check |
+| `GET` | `/spells` | Paginated **summary** list (`id`, `name` only) with filters |
+| `GET` | `/spells/:id` | Full spell record by stable ID |
+| `POST` | `/spells` | Create a custom spell (server mints `id`, timestamps, `source: custom`) |
+| `PUT` | `/spells/:id` | Replace a custom spell |
+| `PATCH` | `/spells/:id` | Partially update a custom spell |
+| `DELETE` | `/spells/:id` | Delete a custom spell |
+| `GET` | `/metadata` | Filter vocabularies — schools, classes, levels, sources |
+| `GET` | `/openapi.json` | Machine-readable specification |
 
-### Error format
+**List filters:** `page`, `pageSize` (max 100), `search`, `level`, `school`,
+`class` (repeatable), `ritual`, `concentration`, `source` (`official` / `custom` /
+`all`), `sort`, `direction`. Unknown query parameters are ignored; invalid values
+return `400 VALIDATION_ERROR`.
+
+**Envelopes:** list responses are
+`{"data": [...], "meta": {"page", "pageSize", "totalItems", "totalPages"}}`.
+
+**Error format:**
 
 ```json
 {
@@ -95,52 +151,68 @@ Base path: `/api/v1`
 }
 ```
 
-Validation errors use `VALIDATION_ERROR` and may include `details`.
+Validation errors use `VALIDATION_ERROR` and may include a `details` array.
 
-## Docker
+## Seed data
 
-Build and run:
+`data/spells.json` is the committed canonical dataset loaded at runtime. Each record
+carries a stable `id`, a `slug`, a normalized plain-text `description`, normalized
+booleans and a numeric `level`, controlled `school` and `classes`, `source`, and
+deterministic timestamps. The raw file at the project root (`spells.json`) is only
+an input to `npm run seed:canonicalize`, which produces the canonical file.
 
-```bash
-docker compose up --build
-```
+Full data model and API contract: [`docs/spec.md`](docs/spec.md).
 
-The container exposes one HTTP port on `3000` and stores SQLite data in a persistent Docker volume mounted at `/app/persist`.
-
-### Production compose
-
-For a production host that should only run the latest prebuilt image, use `docker-compose.prod.yml` as the source template and place it on the host as `docker-compose.yml`.
-
-It expects the application image to already exist on the host and defaults to `library-of-netheril:latest`. The named Docker volume keeps the SQLite database mounted at `/app/persist`, so `docker compose up --force-recreate` replaces the container without wiping live data.
-
-```bash
-cp docker-compose.prod.yml /home/krystler/containers/library-of-netheril/docker-compose.yml
-cd /home/krystler/containers/library-of-netheril
-APP_IMAGE=library-of-netheril:latest docker compose up -d --force-recreate --no-build --remove-orphans --wait --wait-timeout 120
-```
-
-Optional `.env` values for the production compose:
-
-- `APP_IMAGE` - image tag to deploy, default `library-of-netheril:latest`
-- `APP_PORT` - host port to publish, default `3000`
-- `PORT` - container HTTP port, default `3000`
-- `DATABASE_URL` - SQLite file path inside the container, default `/app/persist/library-of-netheril.sqlite`
-- `CORS_ORIGIN` - `*` or a comma-separated allowlist
-
-### CI/CD
-
-This repo now includes a Woodpecker pipeline in `.woodpecker.yml`:
-
-- `verify` runs `npm ci`, `npm run typecheck`, `npm run build`, and `npm test` for pushes and pull requests
-- `build-image` rebuilds `library-of-netheril:latest` on pushes to `main`
-- `deploy` copies `docker-compose.prod.yml` into `/home/krystler/containers/library-of-netheril/docker-compose.yml` and recreates the production service from the previously built image without removing the persistent volume
-
-The production host should keep a `/home/krystler/containers/library-of-netheril/.env` file with the desired production values before the deploy step runs.
-
-## Validation commands
+## Testing
 
 ```bash
 npm run typecheck
 npm run build
 npm test
 ```
+
+Coverage spans validation and transformation units, seed-import integration,
+every REST endpoint, and contract tests for stable lookup, pagination shape,
+filtering, and official-spell read-only enforcement.
+
+## Deployment
+
+`.woodpecker.yml` runs `verify` (`npm ci`, typecheck, build, test) on every push and
+pull request, then `build-image` and `deploy` on pushes to `main` — building the
+image against the runner host's Docker socket and recreating the service from
+`docker-compose.prod.yml`, no registry involved.
+
+For a manual production host, use `docker-compose.prod.yml` as the template placed
+on the host as `docker-compose.yml`:
+
+```bash
+mkdir -p /opt/stacks/library-of-netheril
+cp docker-compose.prod.yml /opt/stacks/library-of-netheril/docker-compose.yml
+cd /opt/stacks/library-of-netheril
+# create .env with production values first
+APP_IMAGE=library-of-netheril:latest \
+  docker compose up -d --force-recreate --no-build --remove-orphans --wait --wait-timeout 120
+```
+
+The named volume keeps the SQLite database mounted at `/app/persist`, so
+`--force-recreate` swaps the container without wiping data. Production `.env` keys:
+`APP_IMAGE`, `APP_PORT`, `PORT`, `DATABASE_URL`, `CORS_ORIGIN`.
+
+## How it fits the suite
+
+[Many Faced God](https://github.com/Nayanaka-De-Silva/Many-Faced-God) and
+[Manticore Arena](https://github.com/Nayanaka-De-Silva/Manticore-Arena) both read
+spell data from this service by stable `id`, over a shared Docker network, using the
+same public `/api/v1` endpoints documented above.
+
+## Content and licensing
+
+The application code is original and released under the [MIT License](LICENSE).
+
+The bundled `data/spells.json` contains Dungeons & Dragons 5e spell reference text.
+Dungeons & Dragons is a trademark of Wizards of the Coast; this is a personal,
+non-commercial tool and is not affiliated with or endorsed by Wizards of the Coast.
+If you fork this for anything beyond personal use, replace the seed file with
+content you are licensed to distribute — for example the
+[SRD 5.1](https://dnd.wizards.com/resources/systems-reference-document), released
+under CC-BY-4.0.
